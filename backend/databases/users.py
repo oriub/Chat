@@ -1,7 +1,7 @@
 from sqlmodel import Session, select
 from passlib.hash import bcrypt
 
-from models import engine, User
+from databases.models import engine, User
 
 
 def create_user(user: User):
