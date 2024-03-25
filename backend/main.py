@@ -15,6 +15,7 @@ JWT_SECRET_KEY = "e280a46c1b7635282e98a5b39e9cdefda930783272c6c0791a1fb49637b932
 JWT_ALGORITHM = "HS256"
 
 
+# returned jwt token scheme
 class Token(BaseModel):
     access_token: str
     token_type: str
