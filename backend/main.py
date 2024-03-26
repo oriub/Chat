@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from jose import jwt, JWTError
 
@@ -24,6 +25,16 @@ class Token(BaseModel):
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 app = FastAPI()
+
+origins = ['*']
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 def create_token(data: dict, expire_delta: timedelta | None = None):
@@ -88,3 +99,4 @@ async def token_login(user_data: Annotated[OAuth2PasswordRequestForm, Depends()]
 @app.post("/signup")
 def signup(user: User):
     return users.create_user(user)
+
