@@ -1,4 +1,6 @@
 import {React, useState} from "react";
+import { useRouter } from 'next/router'
+
 import { InputText } from 'primereact/inputtext';
 import { Password } from 'primereact/password';
 import { Card } from 'primereact/card';
@@ -12,17 +14,20 @@ import sendRequest from "@/components/apicalls";
 
 
 export default function LoginPage(){
-    let [errMessage, setErrMessage] = useState('');
+    const [errMessage, setErrMessage] = useState('');
+    const router = useRouter()
 
     async function handleSignupSubmit(event: React.FormEvent<HTMLFormElement>){
-        const url = "http://localhost:5000/signup";
+
         event.preventDefault();
         console.log("signup submitted");
+
+        const url = "http://localhost:5000/signup";
 
         const target = event.target as typeof event.target & {
           username: { value: string };
           password: { value: string };
-          //passwordRepeat: {value: string};
+          passwordRepeat: {value: string};
         };
 
         const data = {
@@ -32,27 +37,30 @@ export default function LoginPage(){
 
         try{
             const resp = await sendRequest(url, data, "POST");
+            if(resp.status == 200){
+                router.push('/')
+            }
         }
         catch(error){
-            console.log("fuck")
-            console.log(error)
-            setErrMessage(error)
+            console.log("fuck");
+            console.log( error);
+            setErrMessage(error.message);
         }
     }
 
 
 
     return(
-
-        <Card title="SignUp" className="center">
+        <>
+        <Card title="SignUp" className="center" onSubmit={handleSignupSubmit} >
             {errMessage && <Message severity="warn" text={errMessage} />}
             <form onSubmit={ handleSignupSubmit }>
                 <InputText name="username" placeholder="Username" className="block"/>
                 <Password name="password" placeholder="Password" className="block"/>
                 <Password name="repeat" placeholder="Repeat Password" className="block"/>
-                <Button type="submit" label="Sign Up" rounded />
+                <Button type="submit" label="Sign Up"  rounded />
             </form>
         </Card>
-
+        </>
     );
 }
