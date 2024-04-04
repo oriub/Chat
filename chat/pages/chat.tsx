@@ -11,7 +11,7 @@ export default function chat(){
     //only show chat card when a user is chosen
     //
     //set a listening socket?
-
+    <>
     {otherUser &&
         <Card title={otherUser} className="center">
             <div className="p-inputgroup flex-1 center">
@@ -20,5 +20,6 @@ export default function chat(){
             </div>
         </Card>
     }
+    </>
     );
 }
