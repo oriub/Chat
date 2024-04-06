@@ -36,12 +36,12 @@ export default function LoginPage(){
         };
 
         try{
-            const resp = await sendRequest(url, data, "POST");
+            const resp = await sendRequest(url, "POST",  data);
             if(resp.status == 200){
-                router.push('/')
+                await router.push('/')
             }
         }
-        catch(error){
+        catch(error: any){
             console.log("fuck");
             console.log( error);
             setErrMessage(error.message);

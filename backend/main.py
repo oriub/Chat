@@ -1,8 +1,10 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Response
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import Response, Request
+from fastapi import WebSocket, WebSocketDisconnect
+from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from jose import jwt, JWTError
+from jose import jwt, ExpiredSignatureError
 from sqlalchemy.exc import IntegrityError
 
 from datetime import timedelta, datetime
@@ -10,9 +12,10 @@ from typing import Annotated
 
 from databases.models import create_tables_and_db, User
 from databases import users
+from socketconnectionmanager import SocketConnectionManager
 
 
-TOKEN_EXPIRE_MINUTES = 15
+TOKEN_EXPIRE_MINUTES = 10
 JWT_SECRET_KEY = "e280a46c1b7635282e98a5b39e9cdefda930783272c6c0791a1fb49637b93247"
 JWT_ALGORITHM = "HS256"
 
@@ -27,12 +30,10 @@ class UserLoginInfo(BaseModel):
     username: str
     password: str
 
-#add inheritance?
+
 class UsernameInfo(BaseModel):
-    username:str
+    username: str
 
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 app = FastAPI()
 
@@ -46,7 +47,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-ACTIVE_USERS = []
+connection_manager = SocketConnectionManager()
+
 
 def create_token(data: dict, expire_delta: timedelta | None = None):
     data_to_encode = data.copy()
@@ -54,34 +56,38 @@ def create_token(data: dict, expire_delta: timedelta | None = None):
         expire = datetime.now() + expire_delta
     else:
         expire = datetime.now() + timedelta(minutes=TOKEN_EXPIRE_MINUTES)
-    data_to_encode["exp"] = expire
+    data_to_encode["exp"] = int(expire.timestamp())
 
     encoded = jwt.encode(data_to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
     return encoded
 
 
-async def validate_user_token(token: Annotated[str, Depends(oauth2_scheme)]):
+async def validate_user_token(request: Request):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="unable to validate credentials, token is either invalid or expired",
+        detail="unable to validate credentials, you are either unauthenticated or your token is invalid or expired",
         headers={"WWW-Authenticate": "Bearer"}
     )
 
     try:
+        token = request.cookies.get("jwt")
+        if not token:
+            raise credentials_exception
         decoded = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
         username = decoded["sub"]
-        expires = decoded["exp"]
+        expires = datetime.fromtimestamp(decoded["exp"])
 
-        if username is None or expires <= datetime.now():
+        if username is None or expires < datetime.now():
             raise credentials_exception
-    except JWTError:
+
+        user = users.get_user(username)
+        if user is None:
+            raise credentials_exception
+
+    except ExpiredSignatureError:
         raise credentials_exception
 
-    user = users.get_user(username)
-    if user is None:
-        raise credentials_exception
-
-    return user
+    return user.username
 
 
 @app.on_event("startup")
@@ -119,10 +125,23 @@ def signup(user: User):
             status_code=status.HTTP_409_CONFLICT,
             detail="This user already exists"
         )
-    return user
+    return user.username
 
 
 @app.get("/activeusers")
-def get_active_users() -> list[str]:
-    return ACTIVE_USERS
+def get_active_users(username: Annotated[str, Depends(validate_user_token)]) -> list[str]:
+    return list(connection_manager.connections.keys())
+
+
+@app.websocket("/socket/{username}")
+async def socket_endpoint(websocket: WebSocket, username: Annotated[str, Depends(validate_user_token)]):
+    await connection_manager.connect(websocket=websocket, username=username)
+
+    try:
+        while True:
+            received_data = await websocket.receive_json()
+            await connection_manager.send_message(sender_username=username, message=received_data["message"], recipient_username=received_data["recipcient"])
+    except WebSocketDisconnect:
+        await connection_manager.send_message(sender_username=username, message="Client Disconnected", recipient_username=received_data["recipient"])
+
 

@@ -1,5 +1,4 @@
-import {React, useState} from "react";
-import { useRouter } from 'next/router'
+import { React, useState} from "react";
 
 import { InputText } from 'primereact/inputtext';
 import { Password } from 'primereact/password';
@@ -8,13 +7,14 @@ import { Button } from 'primereact/button';
 import { Message } from 'primereact/message';
 
 import sendRequest from "@/components/apicalls";
+import { useRouter } from "next/router";
 
 
 
 
 
 export default function LoginPage(){
-
+    const router = useRouter();
     const [errMessage, setErrMessage] = useState('');
 
     async function handleLoginSubmit(event: React.FormEvent<HTMLFormElement>){
@@ -31,19 +31,20 @@ export default function LoginPage(){
         const data = {
             "username": target.username.value,
             "password": target.password.value
-       };
+        };
+
 
         try{
-            const resp = await sendRequest(url, data, "POST", );
-            console.log(resp)
+            const resp = await sendRequest(url, "POST", data );
+            console.log(resp.status)
             if(resp.status == 200){
-                router.push('/')
+                await router.push('/chat')
             }
             else{
                 setErrMessage(resp.detail);
             }
         }
-        catch(error){
+        catch(error: any){
             console.log("fuck");
             console.log( error);
             setErrMessage(error.message);

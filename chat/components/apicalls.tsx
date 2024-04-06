@@ -1,8 +1,7 @@
-import React from "react";
 
-export default async function sendRequest(url: string, data: string, method: string, contentType: str="application/json", token?: string){
+export default async function sendRequest(url: string, method: string, data?: Record<string, any>, contentType: string="application/json" , token?: string){
 
-    const headers = {
+    let headers: Record<any, any> = {
             'Content-Type': contentType,
             'Access-Control-Allow-Origin': 'localhost',
     };
@@ -10,24 +9,25 @@ export default async function sendRequest(url: string, data: string, method: str
     if(token){
         console.log("token found! "+token)
         const authToken = 'Bearer ' + token;
-        headers.push({'Authorization': authToken});
+        headers['Authorization'] = authToken;
     }
 
-
-    try {
-        const response = await fetch(url, {
+    let reqData: Record<any, any> = {
           method: method,
           headers: headers,
-          body: JSON.stringify(data),
           redirect: "follow"
-    });
+    };
 
-//     if (!response.ok) {
-//       throw new Error('Failed to send request', method);
-//     }
+    if(data){
+        const strData = JSON.stringify(data)
+        reqData['body'] =  strData;
+    }
 
-    const responseData = await response.json();
-    return responseData;
+    try {
+        const response = await fetch(url, reqData );
+
+
+    return response;
   }
   catch (error) {
     console.error('Error sending request: ', method, "error: ", error);
