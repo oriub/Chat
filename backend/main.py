@@ -70,7 +70,8 @@ async def validate_user_token(request: Request):
     )
 
     try:
-        token = request.cookies.get("jwt")
+        token = request.cookies.get('jwt')
+        print(f"got token {token}")
         if not token:
             raise credentials_exception
         decoded = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
@@ -117,7 +118,7 @@ async def token_login(user_data: UserLoginInfo, response: Response) -> Token:
 
 
 @app.post("/signup")
-def signup(user: User):
+def signup(user: User) -> UsernameInfo:
     try:
         user = users.create_user(user)
     except IntegrityError as e:
@@ -125,10 +126,15 @@ def signup(user: User):
             status_code=status.HTTP_409_CONFLICT,
             detail="This user already exists"
         )
-    return user.username
+    return UsernameInfo(username=user.username)
 
 
-@app.get("/activeusers")
+@app.get("/users/me")
+def get_my_username(username: Annotated[str, Depends(validate_user_token)]) -> UsernameInfo:
+    return UsernameInfo(username=username)
+
+
+@app.get("/users/activeusers")
 def get_active_users(username: Annotated[str, Depends(validate_user_token)]) -> list[str]:
     return list(connection_manager.connections.keys())
 

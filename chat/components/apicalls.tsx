@@ -15,7 +15,9 @@ export default async function sendRequest(url: string, method: string, data?: Re
     let reqData: Record<any, any> = {
           method: method,
           headers: headers,
-          redirect: "follow"
+          redirect: "follow",
+          credentials: 'include'
+
     };
 
     if(data){
