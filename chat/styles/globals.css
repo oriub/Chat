@@ -17,3 +17,7 @@ body{
     margin: 10px;
 }
 
+.sized{
+    width: 50%;
+    height:50%;
+}

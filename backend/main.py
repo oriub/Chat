@@ -37,7 +37,7 @@ class UsernameInfo(BaseModel):
 
 app = FastAPI()
 
-origins = ['*']
+origins = ["*"]
 
 app.add_middleware(
     CORSMiddleware,
@@ -62,7 +62,7 @@ def create_token(data: dict, expire_delta: timedelta | None = None):
     return encoded
 
 
-async def validate_user_token(request: Request):
+async def validate_user_token(request: Request = None, websocket: WebSocket = None):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="unable to validate credentials, you are either unauthenticated or your token is invalid or expired",
@@ -70,7 +70,10 @@ async def validate_user_token(request: Request):
     )
 
     try:
-        token = request.cookies.get('jwt')
+        if request:
+            token = request.cookies.get('jwt')
+        else:
+            token = websocket.cookies.get('jwt')
         print(f"got token {token}")
         if not token:
             raise credentials_exception
@@ -130,17 +133,17 @@ def signup(user: User) -> UsernameInfo:
 
 
 @app.get("/users/me")
-def get_my_username(username: Annotated[str, Depends(validate_user_token)]) -> UsernameInfo:
+def get_my_username(request: Request, username: str=Depends(validate_user_token)) -> UsernameInfo:
     return UsernameInfo(username=username)
 
 
 @app.get("/users/activeusers")
-def get_active_users(username: Annotated[str, Depends(validate_user_token)]) -> list[str]:
+def get_active_users(request: Request, username: str=Depends(validate_user_token)) -> list[str]:
     return list(connection_manager.connections.keys())
 
 
-@app.websocket("/socket/{username}")
-async def socket_endpoint(websocket: WebSocket, username: Annotated[str, Depends(validate_user_token)]):
+@app.websocket("/socket/{user}")
+async def socket_endpoint(websocket: WebSocket, user: str, username: str = Depends(validate_user_token)):
     await connection_manager.connect(websocket=websocket, username=username)
 
     try:
@@ -148,6 +151,7 @@ async def socket_endpoint(websocket: WebSocket, username: Annotated[str, Depends
             received_data = await websocket.receive_json()
             await connection_manager.send_message(sender_username=username, message=received_data["message"], recipient_username=received_data["recipcient"])
     except WebSocketDisconnect:
-        await connection_manager.send_message(sender_username=username, message="Client Disconnected", recipient_username=received_data["recipient"])
+        #await connection_manager.send_message(sender_username=username, message="Client Disconnected", recipient_username=received_data["recipient"])
+        await websocket.close()
 
 
