@@ -1,9 +1,11 @@
 import { Message } from 'primereact/message';
+import {JSX} from "react";
 
-export default function ChatMessage(text: string, sender: string){
+ export default function ChatMessage(props){
     let severity = "info";
-    if(sender == "me"){
+    if(props.sender == "me"){
         severity = "success";
     }
-    return(<Message severity={severity} text={text}></Message>);
+    return(<Message severity={props.severity} text={props.text}></Message>);
+    //return(<Message  text={text}></Message>);
 }

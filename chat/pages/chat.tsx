@@ -60,17 +60,19 @@ export default function chat() {
 
         const resp = await sendRequest("http://localhost:5000/users/activeusers", "GET");
         const newActiveUsers = await resp.json()
+        console.log(newActiveUsers)
         setActiveUsers(newActiveUsers);
 
 
         let newDict: MessagesPerUser = {}
-        for (let u in newActiveUsers) {
+        newActiveUsers.forEach((u) => {
+            console.log("u: ",u)
             let messages: Array<SingleMessage> = [];
             if (u in messageDict) {
                 messages = messageDict[u];
             }
             newDict[u] = messages;
-        }
+        });
 
         setMessageDict(newDict);
 
@@ -88,7 +90,7 @@ export default function chat() {
 
     };
 
-    const sendMessage = (recipient: string, message: string) => {
+    const sendMessage =  (recipient: string, message: string) => {
         if(socket){
             const obj = {
                 recipient: recipient,
@@ -100,9 +102,27 @@ export default function chat() {
         }
     };
 
+    const addMessageToDict = (sender: string, message: string) =>{
+        const obj = {
+            "sender": sender,
+            "message": message
+        };
+        messageDict[currentUser].push(obj);
+        console.log(messageDict);
+    };
+
     const handleSendMessage =(event: React.FormEvent<HTMLFormElement>) =>{
-        event.preventDefault()
-    }
+        event.preventDefault();
+        const target = event.target as typeof event.target & {
+            text: { value: string };
+        };
+
+        sendMessage(otherUser, target.text.value);
+        addMessageToDict("me", target.text.value)
+        setCurrentUser(currentUser);
+        event.target.reset()
+
+    };
 
 
     useEffect(()=>{
@@ -115,9 +135,13 @@ export default function chat() {
 
     if(currentUser && socket){
         try {
-            socket.onmessage = function (event: Event) {
+            socket.onmessage = function (event: MessageEvent) {
                 const message = event.data;
-                console.log(message);
+                const messageObj = JSON.parse(message);
+                console.log("msg", message);
+
+                addMessageToDict(messageObj.sender, messageObj.message);
+
             }
         }
         catch (e) {
@@ -126,27 +150,37 @@ export default function chat() {
 
     }
 
-    console.log(currentUser);
+    console.log(messageDict);
 
-
-
-    return(
+    const footer = (
+        <div className="col-12 md:col-4">
+        <span>
+            <div className="p-inputgroup fullwidth center-horizontal">
+                <form onSubmit={handleSendMessage} className="p-fluid fullwidth">
+                    <InputText placeholder="message" name="text" className="width80"/>
+                    <Button icon="pi pi-search" className="p-button-info " type="submit"/>
+                </form>
+            </div>
+        </span>
+        </div>
+    );
+    console.log(otherUser);
+    return (
         <>
-        <Menu model={menuItems} className="w-full md:w-15rem"/>
-        {otherUser &&
-            <Card title={otherUser} className="center sized" >
-            {messageDict[otherUser] &&
-                    messageDict[otherUser].map(message => <ChatMessage text={message.message} sender={message.sender} ></ChatMessage>)
-            }
+            <Menu model={menuItems} className="w-full md:w-15rem"/>
+            {otherUser &&
+                <Card title={otherUser} footer={footer} className="center">
+                    {messageDict[otherUser] &&
 
-                <div className="p-inputgroup flex-1 center">
-                    <form onSubmit={handleSendMessage}>
-                        <InputText placeholder="message" />
-                        <Button icon="pi pi-search" className="p-button-info" type={"submit"}/>
-                    </form>
-                </div>
-            </Card>
+                        (messageDict[otherUser]).map(
+                            function (message){
+                                return(<ChatMessage text={message.message} sender={message.sender}></ChatMessage>);
+                            }
+                        )
+                    }
+                </Card>
         }
         </>
     );
+
 }

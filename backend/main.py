@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi import Response, Request
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import WebSocket
+from starlette.websockets import WebSocketDisconnect
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -74,7 +75,6 @@ async def validate_user_token(request: Request = None, websocket: WebSocket = No
             token = request.cookies.get('jwt')
         else:
             token = websocket.cookies.get('jwt')
-        print(f"got token {token}")
         if not token:
             raise credentials_exception
         decoded = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
@@ -149,7 +149,8 @@ async def socket_endpoint(websocket: WebSocket, user: str, username: str = Depen
     try:
         while True:
             received_data = await websocket.receive_json()
-            await connection_manager.send_message(sender_username=username, message=received_data["message"], recipient_username=received_data["recipcient"])
+            print(f"data: {received_data}")
+            await connection_manager.send_message(sender_username=username, message=received_data["message"], recipient_username=received_data["recipient"])
     except WebSocketDisconnect:
         #await connection_manager.send_message(sender_username=username, message="Client Disconnected", recipient_username=received_data["recipient"])
         await websocket.close()
