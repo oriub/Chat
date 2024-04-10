@@ -41,7 +41,8 @@ export default function LoginPage(){
                 await router.push('/chat')
             }
             else{
-                setErrMessage(resp.detail);
+                console.log(resp)
+                setErrMessage(resp.statusText);
             }
         }
         catch(error: any){

@@ -1,12 +1,17 @@
-import Head from "next/head";
-import Image from "next/image";
-import { Inter } from "next/font/google";
-import styles from "@/styles/Home.module.css";
-
-const inter = Inter({ subsets: ["latin"] });
+import {Button} from "primereact/button";
+import {useRouter} from "next/router";
+import {Card} from "primereact/card";
 
 export default function Home() {
+  const router = useRouter();
   return (
-    <p>hihihihi</p>
+      <>
+         <Card title="Welcome!" className=" center big-padding welcomecard">
+            <Button type="button" className="margin-bot button" label="signup" onClick={()=>router.push("/signup")}  outlined ></Button>
+         <br/>
+            <Button type="button" className="margin-top button" label="login" onClick={()=>router.push("/login")} outlined></Button>
+         </Card>
+        </>
+
   );
 }

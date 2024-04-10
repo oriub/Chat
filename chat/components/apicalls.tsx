@@ -3,8 +3,9 @@ export default async function sendRequest(url: string, method: string, data?: Re
 
     let headers: Record<any, any> = {
             'Content-Type': contentType,
-            'Access-Control-Allow-Origin': 'localhost',
+            'Access-Control-Allow-Origin': 'localhost'
     };
+
 
     if(token){
         console.log("token found! "+token)
@@ -13,12 +14,15 @@ export default async function sendRequest(url: string, method: string, data?: Re
     }
 
     let reqData: Record<any, any> = {
-          method: method,
-          headers: headers,
-          redirect: "follow",
-          credentials: 'include'
+        method: method,
+        headers: headers,
+        redirect: "follow",
+        credentials: 'include',
+
 
     };
+
+    console.log("reqdata is ", reqData)
 
     if(data){
         const strData = JSON.stringify(data)
@@ -29,10 +33,10 @@ export default async function sendRequest(url: string, method: string, data?: Re
         const response = await fetch(url, reqData );
 
 
-    return response;
-  }
-  catch (error) {
-    console.error('Error sending request: ', method, "error: ", error);
-    throw error;
-  }
+        return response;
+    }
+    catch (error) {
+        console.error('Error sending request: ', method, "error: ", error);
+        throw error;
+    }
 }

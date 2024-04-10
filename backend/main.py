@@ -16,6 +16,7 @@ from databases import users
 from socketconnectionmanager import SocketConnectionManager
 
 
+# JWT Settings
 TOKEN_EXPIRE_MINUTES = 10
 JWT_SECRET_KEY = "e280a46c1b7635282e98a5b39e9cdefda930783272c6c0791a1fb49637b93247"
 JWT_ALGORITHM = "HS256"
@@ -27,30 +28,35 @@ class Token(BaseModel):
     token_type: str
 
 
+# login info scheme
 class UserLoginInfo(BaseModel):
     username: str
     password: str
 
 
+# username api input scheme
 class UsernameInfo(BaseModel):
     username: str
 
 
 app = FastAPI()
 
-origins = ["*"]
+# allowed origins, should be changed if not running on localhost
+origins = ["http://localhost:3000"]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*"]
 )
 
+# initialize socket connections manager
 connection_manager = SocketConnectionManager()
 
 
+# create a jwt token
 def create_token(data: dict, expire_delta: timedelta | None = None):
     data_to_encode = data.copy()
     if expire_delta:
@@ -63,6 +69,7 @@ def create_token(data: dict, expire_delta: timedelta | None = None):
     return encoded
 
 
+# check if given jwt is valid (from request cookie)
 async def validate_user_token(request: Request = None, websocket: WebSocket = None):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -75,6 +82,7 @@ async def validate_user_token(request: Request = None, websocket: WebSocket = No
             token = request.cookies.get('jwt')
         else:
             token = websocket.cookies.get('jwt')
+        #if no cookie exists
         if not token:
             raise credentials_exception
         decoded = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
@@ -94,18 +102,16 @@ async def validate_user_token(request: Request = None, websocket: WebSocket = No
     return user.username
 
 
+#create db tables on app startup
 @app.on_event("startup")
 def startup():
     create_tables_and_db()
 
 
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
-
-
+# authenticate user with db, and respond with jwt
 @app.post("/token")
 async def token_login(user_data: UserLoginInfo, response: Response) -> Token:
+    # check if given info matches db
     user = users.authenticate_user(user_data.username, user_data.password)
 
     if not user:
@@ -115,11 +121,14 @@ async def token_login(user_data: UserLoginInfo, response: Response) -> Token:
             headers={"WWW-Authenticate": "Bearer"}
         )
 
+    # generate jwt token
     access_token = create_token(data={"sub": user.username})
+    # set cookie on client with cookie
     response.set_cookie(key="jwt", value=access_token)
     return Token(access_token=access_token, token_type="bearer")
 
 
+# create user with given info
 @app.post("/signup")
 def signup(user: User) -> UsernameInfo:
     try:
@@ -132,16 +141,19 @@ def signup(user: User) -> UsernameInfo:
     return UsernameInfo(username=user.username)
 
 
+# get current user username
 @app.get("/users/me")
 def get_my_username(request: Request, username: str=Depends(validate_user_token)) -> UsernameInfo:
     return UsernameInfo(username=username)
 
 
+# list all app active users
 @app.get("/users/activeusers")
 def get_active_users(request: Request, username: str=Depends(validate_user_token)) -> list[str]:
     return list(connection_manager.connections.keys())
 
 
+# create socket endpoint per user, send and receive messages
 @app.websocket("/socket/{user}")
 async def socket_endpoint(websocket: WebSocket, user: str, username: str = Depends(validate_user_token)):
     await connection_manager.connect(websocket=websocket, username=username)
@@ -149,10 +161,15 @@ async def socket_endpoint(websocket: WebSocket, user: str, username: str = Depen
     try:
         while True:
             received_data = await websocket.receive_json()
-            print(f"data: {received_data}")
+            print(f"data: {received_data}, type: {type(received_data)}")
             await connection_manager.send_message(sender_username=username, message=received_data["message"], recipient_username=received_data["recipient"])
     except WebSocketDisconnect:
+        print("caught socket disconnect")
         #await connection_manager.send_message(sender_username=username, message="Client Disconnected", recipient_username=received_data["recipient"])
-        await websocket.close()
+        #await websocket.close()
+        connection_manager.disconnect(username=username)
+
+    except KeyError:
+        print("no longer connected")
 
 

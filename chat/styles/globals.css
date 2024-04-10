@@ -39,3 +39,32 @@ body{
     margin-right: auto;
 }
 
+.big-padding{
+    padding: 50px;
+}
+
+.margin-top{
+    margin-top:20px;
+    margin-bottom:auto;
+}
+
+.margin-bot{
+    margin-bottom:20px;
+    margin-top:auto;
+}
+
+.button{
+    height:120px;
+    width:200px;
+    margin-left:auto;
+    margin-right:auto;
+    font-size: 40px;
+
+}
+
+.welcomecard{
+    height:50%;
+    width:auto;
+
+}
+

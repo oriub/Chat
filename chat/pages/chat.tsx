@@ -10,9 +10,8 @@ import { Card } from "primereact/card";
 import { Menu } from "primereact/menu"
 import { useRouter } from "next/router";
 import {string} from "prop-types";
-
-
-
+import {Message} from "primereact/message";
+import {CloseEvent} from "undici-types";
 
 
 
@@ -33,56 +32,87 @@ export default function chat() {
 
     const router = useRouter();
 
-
+    //current logged-in user
     const [currentUser, setCurrentUser] = useState("");
+    //user whose chat (with) is open
     const [otherUser, setOtherUser] = useState("");
-    const [activeUsers, setActiveUsers] = useState([]);
+    //dict containing all messages received from the socket by user
     const [messageDict, setMessageDict] = useState<MessagesPerUser>({});
+    //active users to send messages to, in format accepted by Menu component
     const [menuItems, setMenuItems] = useState<Array<MenuItem>>([])
+    //socket with server
     const [socket, setSocket] = useState<WebSocket | null>(null)
+    //changes when messages and active users refresh is needed (used for useEffect hook)
+    const [refresh, setRefresh] = useState(false);
 
+    //on timeout of user login/socket connection
+    const signout = () =>{
+        return router.push("/login")
+    }
+
+    //get current logged in user from back
     const fetchCurrentUser = async () => {
         console.log("fetching user")
-        const resp = await sendRequest("http://localhost:5000/users/me", "GET");
+        try {
+            const resp = await sendRequest("http://localhost:5000/users/me", "GET");
 
-        if (resp.status == 401) {
-            router.push("/login")
+            if (resp.status != 200) {
+                return signout()
+            }
+
+            const js = await resp.json();
+            const username = await js["username"]
+            setCurrentUser(await username);
+            return username;
+        }
+        catch{
+            return signout()
         }
 
-        const js = await resp.json();
-        const username = await js["username"]
-        setCurrentUser(await username);
-        return username
 
     };
 
-    const fetchActiveUsers = async () => {
+    //return all connected users from back, set menuitems accordingly
+    const fetchActiveUsers = async (): Promise<MessagesPerUser|boolean> => {
 
         const resp = await sendRequest("http://localhost:5000/users/activeusers", "GET");
-        const newActiveUsers = await resp.json()
-        console.log(newActiveUsers)
-        setActiveUsers(newActiveUsers);
 
+        if(resp.status != 200){
+            return router.push("/login")
+        }
+        const newActiveUsers = await resp.json();
 
         let newDict: MessagesPerUser = {}
-        newActiveUsers.forEach((u) => {
-            console.log("u: ",u)
+        newActiveUsers.forEach((u: string) => {
+
             let messages: Array<SingleMessage> = [];
             if (u in messageDict) {
+
                 messages = messageDict[u];
+                console.log("u: ",u, "messages",messages);
             }
             newDict[u] = messages;
         });
+        console.log("newdict", newDict);
 
-        setMessageDict(newDict);
 
-        setMenuItems(newActiveUsers.map(item => {
-            return {label: item, icon: 'pi pi-fw pi-plus', command: () => setOtherUser(item)};
-        }));
+        setMenuItems(getMenuItems(newActiveUsers));
+
+        return newDict;
+
     };
 
+    //get an array of formatted menuitems from array of connected user usernames
+    const getMenuItems = (newActiveUsers: Array<string>) =>{
+        const menuItems: Array<MenuItem> = newActiveUsers.map(item => {
+            return {label: item, icon: 'pi pi-fw pi-plus', command: () => setOtherUser(item)};
+        })
 
-    const openSocket = (username: string) => {
+        return menuItems;
+    }
+
+    //open socket with server
+    const openSocket = async (username: string) => {
 
         const url = "ws://localhost:5000/socket/" + username;
         console.log("url is", url)
@@ -90,6 +120,7 @@ export default function chat() {
 
     };
 
+    //send message via socket
     const sendMessage =  (recipient: string, message: string) => {
         if(socket){
             const obj = {
@@ -100,17 +131,28 @@ export default function chat() {
 
             socket.send(data);
         }
+        else{
+            signout();
+        }
     };
 
-    const addMessageToDict = (sender: string, message: string) =>{
-        const obj = {
+    //add new sent/received message to the messages dict
+    const addMessageToDict = (newMessageDict: MessagesPerUser, chat: string, sender: string, message: string) =>{
+        const objMsg: SingleMessage = {
             "sender": sender,
             "message": message
         };
-        messageDict[currentUser].push(obj);
-        console.log(messageDict);
+        console.log("dict", messageDict, chat);
+        newMessageDict[chat].push(objMsg);
+
+        setMessageDict(newMessageDict);
+
+        //refresh messages and activeusers after!
+        setRefresh(!refresh);
+
     };
 
+    //on message send button press, take message from the form, send it and add it to the dict
     const handleSendMessage =(event: React.FormEvent<HTMLFormElement>) =>{
         event.preventDefault();
         const target = event.target as typeof event.target & {
@@ -118,40 +160,59 @@ export default function chat() {
         };
 
         sendMessage(otherUser, target.text.value);
-        addMessageToDict("me", target.text.value)
-        setCurrentUser(currentUser);
-        event.target.reset()
-
+        addMessageToDict(messageDict, otherUser, "me", target.text.value)
+        //reset form input after
+        event.target.reset();
     };
 
+    //parse message from received MessageEvent and add to dict
+    const handleRecieveMessage = (event: MessageEvent) =>{
 
+        fetchActiveUsers().then(newDict => {
+            const message = event.data;
+            const messageObj = JSON.parse(JSON.parse(message));
+            console.log("msg ", messageObj);
+            console.log("msg sender", messageObj.sender);
+            console.log("msg", messageObj.message);
+
+            addMessageToDict(newDict, messageObj.sender, messageObj.sender, messageObj.message);
+        });
+    };
+
+    //signout when socket closes
+    //add message later
+    const handleSocketClose = (event: Event) =>{
+        signout();
+    };
+
+    //load resources from back on page startup
     useEffect(()=>{
         fetchCurrentUser()
-        .then((username)=>openSocket(username))
-        .then(()=>fetchActiveUsers())
+            .then((user) => openSocket(user)
+                .then(()=>fetchActiveUsers()
+                    .then((newDict) => setMessageDict(newDict))))
 
     }, []);
 
+    //reload the active users and messages to display
+    //when menu is pressed (otherUser changes) or message is sent/recieved (refresh changes)
+    useEffect(()=>{
+        fetchActiveUsers()
+            .then((newDict) => setMessageDict(newDict));
+    },[refresh,otherUser]);
 
-    if(currentUser && socket){
-        try {
-            socket.onmessage = function (event: MessageEvent) {
-                const message = event.data;
-                const messageObj = JSON.parse(message);
-                console.log("msg", message);
+    //on socket events, run the according function
+    if(currentUser && socket) {
 
-                addMessageToDict(messageObj.sender, messageObj.message);
-
-            }
-        }
-        catch (e) {
-            console.log(e);
-        }
-
+        socket.onclose = handleSocketClose;
+        socket.onmessage = handleRecieveMessage;
     }
 
-    console.log(messageDict);
 
+
+
+    console.log(messageDict);
+    //card footer
     const footer = (
         <div className="col-12 md:col-4">
         <span>
@@ -164,7 +225,7 @@ export default function chat() {
         </span>
         </div>
     );
-    console.log(otherUser);
+
     return (
         <>
             <Menu model={menuItems} className="w-full md:w-15rem"/>
@@ -174,10 +235,14 @@ export default function chat() {
 
                         (messageDict[otherUser]).map(
                             function (message){
-                                return(<ChatMessage text={message.message} sender={message.sender}></ChatMessage>);
+
+                                return(<ChatMessage key={messageDict[otherUser].indexOf(message)} text={message.message} sender={message.sender}></ChatMessage>);
                             }
                         )
+
+
                     }
+
                 </Card>
         }
         </>

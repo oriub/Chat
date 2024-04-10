@@ -38,7 +38,11 @@ export default function LoginPage(){
         try{
             const resp = await sendRequest(url, "POST",  data);
             if(resp.status == 200){
-                await router.push('/')
+                await router.push('/login')
+            }
+            else{
+                setErrMessage(resp.statusText)
+                console.log(resp)
             }
         }
         catch(error: any){
