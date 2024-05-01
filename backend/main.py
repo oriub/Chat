@@ -82,9 +82,11 @@ async def validate_user_token(request: Request = None, websocket: WebSocket = No
             token = request.cookies.get('jwt')
         else:
             token = websocket.cookies.get('jwt')
-        #if no cookie exists
+
+        # if no cookie exists
         if not token:
             raise credentials_exception
+
         decoded = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
         username = decoded["sub"]
         expires = datetime.fromtimestamp(decoded["exp"])

@@ -9,9 +9,6 @@ import { Button } from 'primereact/button';
 import { Card } from "primereact/card";
 import { Menu } from "primereact/menu"
 import { useRouter } from "next/router";
-import {string} from "prop-types";
-import {Message} from "primereact/message";
-import {CloseEvent} from "undici-types";
 
 
 
