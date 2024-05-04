@@ -1,4 +1,5 @@
-import {React, useState, useEffect, useRef} from "react";
+import * as React from "react";
+import {useState, useEffect, useRef} from "react";
 //import {WebSocket} from 'ws';
 
 import sendRequest from "@/components/apicalls";
@@ -7,7 +8,8 @@ import ChatMessage from "@/components/message";
 import { InputText } from 'primereact/inputtext';
 import { Button } from 'primereact/button';
 import { Card } from "primereact/card";
-import { Menu } from "primereact/menu"
+import { Menu } from "primereact/menu";
+import { MenuItem } from "primereact/menuitem"
 import {Toast} from "primereact/toast";
 import {ScrollPanel} from "primereact/scrollpanel";
 
@@ -16,7 +18,7 @@ import { useRouter } from "next/router";
 
 
 
-export default function chat() {
+export default function Chat() {
     interface SingleMessage{
         message: string;
         sender: string;
@@ -25,15 +27,16 @@ export default function chat() {
         recipient: string;
         message: string;
     }
+
     type MessagesPerUser = {
         [key: string]: Array<SingleMessage>;
     };
 
-    interface MenuItem {
-        label: string;
-        icon: string;
-        command: Function;
-    }
+    // interface MenuItem {
+    //     label: string;
+    //     icon: string;
+    //     command: Function;
+    // }
 
     const router = useRouter();
 
@@ -82,13 +85,14 @@ export default function chat() {
     };
 
     //return all connected users from back, set menuitems accordingly
-    const fetchActiveUsers = async (): Promise<MessagesPerUser|boolean> => {
+    const fetchActiveUsers = async (): Promise<MessagesPerUser> => {
 
         const resp = await sendRequest("http://localhost:5000/users/activeusers", "GET");
 
         if(resp.status != 200){
             showWarning("failed to communicate to back")
-            return router.push("/login");
+            await router.push("/login");
+
         }
         const newActiveUsers = await resp.json();
 
@@ -177,14 +181,14 @@ export default function chat() {
     //on message send button press, take message from the form, send it and add it to the dict
     const handleSendMessage =(event: React.FormEvent<HTMLFormElement>) =>{
         event.preventDefault();
-        const target = event.target as typeof event.target & {
+        const target = event.target as HTMLFormElement & {
             text: { value: string };
         };
 
         sendMessage(otherUser, target.text.value);
         addMessageToDict(messageDict, otherUser, "me", target.text.value)
         //reset form input after
-        event.target.reset();
+        target.reset();
     };
 
     //parse message from received MessageEvent and add to dict
@@ -233,7 +237,9 @@ export default function chat() {
 
 
     const showWarning = (message: string) => {
-        warning.current.show({severity: 'warn', summary: 'Warning', detail: message});
+        if(warning.current) {
+            warning.current.show({severity: 'warn', summary: 'Warning', detail: message});
+        }
     }
 
 

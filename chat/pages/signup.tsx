@@ -1,4 +1,5 @@
-import {React, useState} from "react";
+import * as React from "react";
+import {useState} from "react";
 import { useRouter } from 'next/router'
 
 import { InputText } from 'primereact/inputtext';
@@ -56,7 +57,7 @@ export default function LoginPage(){
 
     return(
         <>
-        <Card title="SignUp" className="center" onSubmit={handleSignupSubmit} >
+        <Card title="SignUp" className="center" >
             {errMessage && <Message severity="warn" text={errMessage} />}
             <form onSubmit={ handleSignupSubmit }>
                 <InputText name="username" placeholder="Username" className="block"/>

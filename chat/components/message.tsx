@@ -1,12 +1,14 @@
 import { Message } from 'primereact/message';
-import {JSX} from "react";
+import React from 'react';
+import {MessageProps} from "primereact/message";
 
-//create the message component, change the color according to sender
- export default function ChatMessage(props){
-    let severity = "info";
+type ChatMessageProps = MessageProps & {sender:string};
+type Severity = "info" | "success" | "warn" | "error" | "secondary" | "contrast" | undefined;
+
+export default function ChatMessage(props: ChatMessageProps){
+    let severity: Severity = "info";
     if(props.sender == "me"){
         severity = "success";
     }
     return(<Message severity={severity} text={props.text} icon=" " className="block"></Message>);
-    //return(<Message  text={text}></Message>);
 }

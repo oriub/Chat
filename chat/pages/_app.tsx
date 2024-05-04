@@ -1,4 +1,4 @@
-import {React} from "react";
+import * as React from "react";
 import type { AppProps } from "next/app";
 import { PrimeReactProvider } from "primereact/api";
 import "primereact/resources/themes/bootstrap4-dark-blue/theme.css";
