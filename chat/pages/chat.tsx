@@ -9,6 +9,7 @@ import { Button } from 'primereact/button';
 import { Card } from "primereact/card";
 import { Menu } from "primereact/menu"
 import {Toast} from "primereact/toast";
+import {ScrollPanel} from "primereact/scrollpanel";
 
 import { useRouter } from "next/router";
 
@@ -19,6 +20,10 @@ export default function chat() {
     interface SingleMessage{
         message: string;
         sender: string;
+    }
+    interface ToSendMessage{
+        recipient: string;
+        message: string;
     }
     type MessagesPerUser = {
         [key: string]: Array<SingleMessage>;
@@ -50,6 +55,7 @@ export default function chat() {
 
     //on timeout of user login/socket connection
     const signout = () =>{
+        showWarning("User no longer Authenticated! signing out...")
         return router.push("/login")
     }
 
@@ -65,7 +71,7 @@ export default function chat() {
 
             const js = await resp.json();
             const username = await js["username"]
-            setCurrentUser(await username);
+            setCurrentUser(username);
             return username;
         }
         catch{
@@ -81,6 +87,7 @@ export default function chat() {
         const resp = await sendRequest("http://localhost:5000/users/activeusers", "GET");
 
         if(resp.status != 200){
+            showWarning("failed to communicate to back")
             return router.push("/login");
         }
         const newActiveUsers = await resp.json();
@@ -107,10 +114,10 @@ export default function chat() {
             setOtherUser("");
         }
 
-        if( Object.keys(newDict).length == 0){
-            showWarning("Disconnected")
-            router.push("/")
-        }
+        // if( Object.keys(newDict).length == 0){
+        //     showWarning("Disconnected")
+        //     router.push("/")
+        // }
 
         return newDict;
 
@@ -137,15 +144,16 @@ export default function chat() {
     //send message via socket
     const sendMessage =  (recipient: string, message: string) => {
         if(socket){
-            const obj = {
+            const obj: ToSendMessage = {
                 recipient: recipient,
                 message: message
             };
-            const data = JSON.stringify(obj);
-
+            const data: string = JSON.stringify(obj);
+            console.log(data);
             socket.send(data);
         }
         else{
+            showWarning("Connection to chat disconnected, please login again")
             signout();
         }
     };
@@ -184,7 +192,7 @@ export default function chat() {
 
         fetchActiveUsers().then(newDict => {
             const message = event.data;
-            const messageObj = JSON.parse(JSON.parse(message));
+            const messageObj = JSON.parse(message);
             console.log("msg ", messageObj);
             console.log("msg sender", messageObj.sender);
             console.log("msg", messageObj.message);
@@ -211,8 +219,9 @@ export default function chat() {
     //reload the active users and messages to display
     //when menu is pressed (otherUser changes) or message is sent/recieved (refresh changes)
     useEffect(()=>{
-        fetchActiveUsers()
-            .then((newDict) => setMessageDict(newDict));
+        fetchCurrentUser()
+            .then(() => fetchActiveUsers()
+                .then((newDict) => setMessageDict(newDict)));
     },[refresh,otherUser]);
 
     //on socket events, run the according function
@@ -228,7 +237,7 @@ export default function chat() {
     }
 
 
-    //card footer
+    //card footer - contains the send message input
     const footer = (
         <div className="col-12 md:col-4">
         <span>
@@ -248,10 +257,11 @@ export default function chat() {
             <Menu model={menuItems} className="w-full md:w-15rem"/>
             {otherUser &&
                 <Card title={otherUser} footer={footer} className="center">
+                    <ScrollPanel className="scroll">
                     {messageDict[otherUser] &&
 
                         (messageDict[otherUser]).map(
-                            function (message){
+                            (message) => {
 
                                 return(<ChatMessage key={messageDict[otherUser].indexOf(message)} text={message.message} sender={message.sender}></ChatMessage>);
                             }
@@ -259,6 +269,7 @@ export default function chat() {
 
 
                     }
+                    </ScrollPanel>
 
                 </Card>
         }
