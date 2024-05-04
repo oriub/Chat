@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi import Response, Request
 from fastapi import WebSocket
+from fastapi.responses import JSONResponse
 from starlette.websockets import WebSocketDisconnect
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
@@ -38,15 +39,20 @@ class UserLoginInfo(BaseModel):
 class UsernameInfo(BaseModel):
     username: str
 
+class AuthenticationError(Exception):
+    def __init__(self, msg:str):
+        self.msg = msg
+
 
 app = FastAPI()
 
 # allowed origins, should be changed if not running on localhost
-origins = ["http://localhost:3000"]
+origins = ["http://localhost:3000", "0.0.0.0"]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex="http://localhost.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
@@ -76,6 +82,7 @@ async def validate_user_token(request: Request = None, websocket: WebSocket = No
         detail="unable to validate credentials, you are either unauthenticated or your token is invalid or expired",
         headers={"WWW-Authenticate": "Bearer"}
     )
+    # credentials_exception = JSONResponse(content={"message": "unable to validate credentials, you are either unauthenticated or your token is invalid or expired"}, status_code=401)
 
     try:
         if request:
@@ -85,21 +92,25 @@ async def validate_user_token(request: Request = None, websocket: WebSocket = No
 
         # if no cookie exists
         if not token:
-            raise credentials_exception
+            print("token is None")
+            raise AuthenticationError("no authentication token found in cookies")
 
         decoded = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
         username = decoded["sub"]
         expires = datetime.fromtimestamp(decoded["exp"])
 
-        if username is None or expires < datetime.now():
-            raise credentials_exception
+        if username is None:
+            raise AuthenticationError("no username provided")
+
+        if expires < datetime.now():
+            raise AuthenticationError("token is expired, please login again")
 
         user = users.get_user(username)
         if user is None:
-            raise credentials_exception
+            raise AuthenticationError(f"user {username} doesn't exist")
 
     except ExpiredSignatureError:
-        raise credentials_exception
+        raise AuthenticationError("token is expired, please login again")
 
     return user.username
 
@@ -109,6 +120,11 @@ async def validate_user_token(request: Request = None, websocket: WebSocket = No
 def startup():
     create_tables_and_db()
 
+@app.exception_handler(AuthenticationError)
+def authentication_error(request: Request, exc: AuthenticationError):
+    return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED,
+                        content={"message": f"unable to validate credentials, detail: {exc.msg}"},
+                        headers={"WWW-Authenticate": "Bearer"})
 
 # authenticate user with db, and respond with jwt
 @app.post("/token")
@@ -127,7 +143,7 @@ async def token_login(user_data: UserLoginInfo, response: Response) -> Token:
     access_token = create_token(data={"sub": user.username})
     # set cookie on client with cookie
     response.set_cookie(key="jwt", value=access_token)
-    return Token(access_token=access_token, token_type="bearer")
+    return Token(access_token=access_token, token_type="Bearer")
 
 
 # create user with given info
@@ -166,12 +182,15 @@ async def socket_endpoint(websocket: WebSocket, user: str, username: str = Depen
             print(f"data: {received_data}, type: {type(received_data)}")
             await connection_manager.send_message(sender_username=username, message=received_data["message"], recipient_username=received_data["recipient"])
     except WebSocketDisconnect:
-        print("caught socket disconnect")
+        print("caught socket disconnect - ", username)
         #await connection_manager.send_message(sender_username=username, message="Client Disconnected", recipient_username=received_data["recipient"])
         #await websocket.close()
         connection_manager.disconnect(username=username)
 
     except KeyError:
-        print("no longer connected")
+        print("no longer connected - ", username)
+
+    except HTTPException as e:
+        print(e)
 
 

@@ -1,4 +1,4 @@
-import {React, useState, useEffect} from "react";
+import {React, useState, useEffect, useRef} from "react";
 //import {WebSocket} from 'ws';
 
 import sendRequest from "@/components/apicalls";
@@ -8,7 +8,10 @@ import { InputText } from 'primereact/inputtext';
 import { Button } from 'primereact/button';
 import { Card } from "primereact/card";
 import { Menu } from "primereact/menu"
+import {Toast} from "primereact/toast";
+
 import { useRouter } from "next/router";
+
 
 
 
@@ -42,6 +45,9 @@ export default function chat() {
     //changes when messages and active users refresh is needed (used for useEffect hook)
     const [refresh, setRefresh] = useState(false);
 
+    //reference for the warning message toast
+    const warning = useRef<Toast>(null);
+
     //on timeout of user login/socket connection
     const signout = () =>{
         return router.push("/login")
@@ -63,7 +69,7 @@ export default function chat() {
             return username;
         }
         catch{
-            return signout()
+            return signout();
         }
 
 
@@ -75,7 +81,7 @@ export default function chat() {
         const resp = await sendRequest("http://localhost:5000/users/activeusers", "GET");
 
         if(resp.status != 200){
-            return router.push("/login")
+            return router.push("/login");
         }
         const newActiveUsers = await resp.json();
 
@@ -95,6 +101,17 @@ export default function chat() {
 
         setMenuItems(getMenuItems(newActiveUsers));
 
+        //if the other user disconnected, show warning
+        if(otherUser && !newDict[otherUser]){
+            showWarning("user "+ otherUser + " Disconnected");
+            setOtherUser("");
+        }
+
+        if( Object.keys(newDict).length == 0){
+            showWarning("Disconnected")
+            router.push("/")
+        }
+
         return newDict;
 
     };
@@ -112,7 +129,7 @@ export default function chat() {
     const openSocket = async (username: string) => {
 
         const url = "ws://localhost:5000/socket/" + username;
-        console.log("url is", url)
+        console.log("url is", url);
         setSocket(new WebSocket(url));
 
     };
@@ -206,9 +223,11 @@ export default function chat() {
     }
 
 
+    const showWarning = (message: string) => {
+        warning.current.show({severity: 'warn', summary: 'Warning', detail: message});
+    }
 
 
-    console.log(messageDict);
     //card footer
     const footer = (
         <div className="col-12 md:col-4">
@@ -225,6 +244,7 @@ export default function chat() {
 
     return (
         <>
+            <Toast ref={warning}></Toast>
             <Menu model={menuItems} className="w-full md:w-15rem"/>
             {otherUser &&
                 <Card title={otherUser} footer={footer} className="center">
