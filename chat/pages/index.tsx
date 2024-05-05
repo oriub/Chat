@@ -6,10 +6,10 @@ export default function Home() {
   const router = useRouter();
   return (
       <>
-         <Card title="Welcome!" className=" center big-padding welcomecard">
-            <Button type="button" className="margin-bot button" label="signup" onClick={()=>router.push("/signup")}  outlined ></Button>
+         <Card title="Welcome!" className=" center big-padding ">
+            <Button type="button" className="margin-bot button" label="signup" onClick={()=>router.push("/signup")}  rounded ></Button>
          <br/>
-            <Button type="button" className="margin-top button" label="login" onClick={()=>router.push("/login")} outlined></Button>
+            <Button type="button" className="margin-top button" label="login" onClick={()=>router.push("/login")} rounded></Button>
          </Card>
         </>
 

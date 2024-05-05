@@ -56,7 +56,7 @@ export default function LoginPage(){
     return(
         <Card title="Login" className="center">
         {errMessage && <Message severity="warn" text={errMessage} />}
-            <form onSubmit={ handleLoginSubmit }>
+            <form onSubmit={ handleLoginSubmit } >
                 <InputText name="username" placeholder="Username" className="block"/>
                 <Password name="password" placeholder="Password" className="block"/>
                 <Button type="submit" label="Login" rounded />

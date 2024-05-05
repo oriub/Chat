@@ -44,33 +44,42 @@ body{
 }
 
 .margin-top{
-    margin-top:20px;
+    margin-top:10px;
     margin-bottom:auto;
 }
 
 .margin-bot{
-    margin-bottom:20px;
+    margin-bottom:10px;
     margin-top:auto;
 }
 
 .button{
-    height:120px;
-    width:200px;
+    height:60px;
+    width:100px;
     margin-left:auto;
     margin-right:auto;
-    font-size: 40px;
+    font-size: 20px;
 
 }
 
-.welcomecard{
-    height:50%;
-    width:auto;
+.cards{
+    height:500px;
+    width:500px;
 
 }
 
 .scroll{
     width: 100%;
-    height: 200px;
+    height: 300px;
 }
 
+.forms{
+    margin: 50px;
+    padding: 10px;
+}
+
+.smallcard{
+    width: 280px;
+    height: 267px;
+}
 

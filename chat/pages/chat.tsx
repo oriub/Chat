@@ -14,6 +14,7 @@ import {Toast} from "primereact/toast";
 import {ScrollPanel} from "primereact/scrollpanel";
 
 import { useRouter } from "next/router";
+import {Chip} from "primereact/chip";
 
 
 
@@ -92,6 +93,7 @@ export default function Chat() {
         if(resp.status != 200){
             showWarning("failed to communicate to back")
             await router.push("/login");
+            return {}
 
         }
         const newActiveUsers = await resp.json();
@@ -169,12 +171,18 @@ export default function Chat() {
             "message": message
         };
         console.log("dict", messageDict, chat);
-        newMessageDict[chat].push(objMsg);
+        if(newMessageDict[chat]) {
+            newMessageDict[chat].push(objMsg);
 
-        setMessageDict(newMessageDict);
-
-        //refresh messages and activeusers after!
+            setMessageDict(newMessageDict);
+            //refresh messages and activeusers after!
+            setRefresh(!refresh);
+        }
+        else{
+            showWarning("error occured")
+        }
         setRefresh(!refresh);
+
 
     };
 
@@ -259,10 +267,11 @@ export default function Chat() {
 
     return (
         <>
+
             <Toast ref={warning}></Toast>
             <Menu model={menuItems} className="w-full md:w-15rem"/>
             {otherUser &&
-                <Card title={otherUser} footer={footer} className="center">
+                <Card title={otherUser} footer={footer} className="center cards">
                     <ScrollPanel className="scroll">
                     {messageDict[otherUser] &&
 
